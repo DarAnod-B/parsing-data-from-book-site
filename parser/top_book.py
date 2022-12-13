@@ -1,13 +1,18 @@
 from enum import Enum
 import requests
 from selectolax.lexbor import LexborHTMLParser
-import argparse
+import os
 
 
 class Link(Enum):
     url_best_book = r"https://fantlab.ru/rating/work/best?all=1&type=1&threshold=50"
     url_popular_book = r"https://fantlab.ru/rating/work/popular?all=1&type=1&threshold=50"
     url_titled_book = r"https://fantlab.ru/rating/work/titled?all=1&type=1"
+
+
+class SecretData(Enum):
+    login = os.environ.get('_fantlab_login')
+    password = os.environ.get('_fantlab_password')
 
 
 def main() -> None:
@@ -29,30 +34,21 @@ def text_from_html(html: str) -> list:
     check = []
     # Большинство книг, в которых отсутствует данный элемент, не имеют жанровой классификации.
     if tree_url is not None:
-        for i in tree_url[0].css("a"):
-            check.append(i.attrs['href'][5:])
+        for a in tree_url[0].css("a"):
+            check.append(a.attrs['href'][5:])
         return check
 
 
 def get_html(url: str) -> str:
     with requests.Session() as session:
-        args = parse_args()
-
-        #  python .\top_book.py --login $(cat .\secrets_data\login) --password $(cat .\secrets_data\password)
-        payload = {'login': args.login, 'password': args.password}
+        payload = {'login': SecretData.login.value,
+                   'password': SecretData.password.value}
         login_url = r"https://fantlab.ru/login"
 
         session.post(login_url, data=payload)
         result = session.get(url)
         html = result.text
         return html
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--login', type=str, required=True)
-    parser.add_argument('-p', '--password', type=str, required=True)
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
