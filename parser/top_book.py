@@ -15,14 +15,16 @@ class SecretData(Enum):
     password = os.environ.get('_fantlab_password')
 
 
-def main() -> None:
-    with open(r'top_link.txt', 'w', encoding="utf-8") as f:
-        f.write(
-            str(
-                set(
-                    text_from_html(get_html(Link.url_best_book.value)) +
-                    text_from_html(get_html(Link.url_popular_book.value)) +
-                    text_from_html(get_html(Link.url_titled_book.value)))))
+def get_html(url: str) -> str:
+    with requests.Session() as session:
+        payload = {'login': SecretData.login.value,
+                   'password': SecretData.password.value}
+        login_url = r"https://fantlab.ru/login"
+
+        session.post(login_url, data=payload)
+        result = session.get(url)
+        html = result.text
+        return html
 
 
 def text_from_html(html: str) -> list:
@@ -39,16 +41,14 @@ def text_from_html(html: str) -> list:
         return check
 
 
-def get_html(url: str) -> str:
-    with requests.Session() as session:
-        payload = {'login': SecretData.login.value,
-                   'password': SecretData.password.value}
-        login_url = r"https://fantlab.ru/login"
-
-        session.post(login_url, data=payload)
-        result = session.get(url)
-        html = result.text
-        return html
+def main() -> None:
+    with open(r'top_link.txt', 'w', encoding="utf-8") as f:
+        f.write(
+            str(
+                set(
+                    text_from_html(get_html(Link.url_best_book.value)) +
+                    text_from_html(get_html(Link.url_popular_book.value)) +
+                    text_from_html(get_html(Link.url_titled_book.value)))))
 
 
 if __name__ == "__main__":

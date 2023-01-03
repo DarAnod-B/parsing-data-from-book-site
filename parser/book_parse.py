@@ -28,51 +28,21 @@ class PathToFile(Enum):
     BOOK = Path("book.csv")
 
 
-useragent = UserAgent()
 
 
-def main() -> None:
-    # Check if the file exists in the directory + Completes the header of our csv file if the file is missing.
-    if not PathToFile.BOOK.value.exists():
-        create_file_with_header(PathToFile.BOOK.value)
+# Degree of belonging of the book to the genre.
+def tag_num(elems: list) -> list:
+    check = []
 
-    with open(PathToFile.BOOK.value, "a", encoding='utf-8') as file:
-        sites = read_link_from_file(PathToFile.TOP_LINK.value)
-
-        for url in tqdm(sites):
-            html, status_code = get_html(url)
-            if status_code_checker(status_code, url):
-                continue
-            file.write(str(text_from_html(html, url)) + '\n')
-            sleep(Delay.MINIMUM_DELAY_BETWEEN_REQUESTS.value)
-
-
-# Create header for csv
-def create_file_with_header(path: HtmlPath) -> None:
-    with open(path, "w") as fd:
-        fd.write(CSV_HEADER)
-
-
-# Read links to sites from top_link.txt
-def read_link_from_file(path: PathToFile) -> list:
-    with open(path, 'r', encoding="utf-8") as f:
-        text = f.read()
-    book_id = [int(element.strip("'{}")) for element in text.split(", ")]
-    return [f"https://fantlab.ru/work{i}" for i in sorted(book_id)]
-
-
-# Getting the html page and the status of the server's response to the request.
-def get_html(url: str) -> list:
-    headers = {"Accept": "*/*", "User-Agent": useragent.random}
-    # Establish a permanent connection
-    session = requests.Session()
-    session.headers = headers
-    adapter = requests.adapters.HTTPAdapter(pool_connections=100,
-                                            pool_maxsize=100)
-    session.mount('http://', adapter)
-    resp = requests.get(url, headers=headers)
-    html = resp.text
-    return [html, resp.status_code]
+    for span in elems:
+        html_el = span.html
+        if re.search(r"wg[-| ]", html_el) is not None:
+            text_from_class = re.findall('"(.*?)"', html_el)
+            if len(text_from_class) > 2:
+                tag_num(span.css("span"))
+            else:
+                check.append(text_from_class)
+    return check
 
 
 def status_code_checker(status_code: int, url: str) -> bool:
@@ -82,6 +52,16 @@ def status_code_checker(status_code: int, url: str) -> bool:
         return True
     else:
         return False
+
+
+# Book genres
+def tag_name(elems: list) -> list:
+    check = []
+
+    for li in elems:
+        check.append(li.text().split(":"))
+
+    return check
 
 
 # Getting the text genre, author, genres, the degree of belonging of the book to the genre.
@@ -104,29 +84,50 @@ def text_from_html(html: str, url: str) -> str:
         return element_mult
 
 
-# Book genres
-def tag_name(elems: list) -> list:
-    check = []
+# Getting the html page and the status of the server's response to the request.
+def get_html(url: str, useragent) -> list:
+    headers = {"Accept": "*/*", "User-Agent": useragent.random}
+    # Establish a permanent connection
+    session = requests.Session()
+    session.headers = headers
+    adapter = requests.adapters.HTTPAdapter(pool_connections=100,
+                                            pool_maxsize=100)
+    session.mount('http://', adapter)
+    resp = requests.get(url, headers=headers)
+    html = resp.text
+    return [html, resp.status_code]
 
-    for li in elems:
-        check.append(li.text().split(":"))
 
-    return check
+# Read links to sites from top_link.txt
+def read_link_from_file(path: PathToFile) -> list:
+    with open(path, 'r', encoding="utf-8") as f:
+        text = f.read()
+    book_id = [int(element.strip("'{}")) for element in text.split(", ")]
+    return [f"https://fantlab.ru/work{i}" for i in sorted(book_id)]
 
 
-# Degree of belonging of the book to the genre.
-def tag_num(elems: list) -> list:
-    check = []
+# Create header for csv
+def create_file_with_header(path: HtmlPath) -> None:
+    with open(path, "w") as fd:
+        fd.write(CSV_HEADER)
 
-    for span in elems:
-        html_el = span.html
-        if re.search(r"wg[-| ]", html_el) is not None:
-            text_from_class = re.findall('"(.*?)"', html_el)
-            if len(text_from_class) > 2:
-                tag_num(span.css("span"))
-            else:
-                check.append(text_from_class)
-    return check
+
+def main() -> None:
+    useragent = UserAgent()
+
+    # Check if the file exists in the directory + Completes the header of our csv file if the file is missing.
+    if not PathToFile.BOOK.value.exists():
+        create_file_with_header(PathToFile.BOOK.value)
+
+    with open(PathToFile.BOOK.value, "a", encoding='utf-8') as file:
+        sites = read_link_from_file(PathToFile.TOP_LINK.value)
+
+        for url in tqdm(sites):
+            html, status_code = get_html(url, useragent)
+            if status_code_checker(status_code, url):
+                continue
+            file.write(str(text_from_html(html, url)) + '\n')
+            sleep(Delay.MINIMUM_DELAY_BETWEEN_REQUESTS.value)
 
 
 if __name__ == '__main__':
